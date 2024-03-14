@@ -197,23 +197,13 @@ struct ButtonComponent
 	std::function<void(entt::entity entity)> onAction;
 };
 
-struct CardComponent
+struct CardComponent : Card
 {
 	CardComponent(Card card = { Suit::HEART, Rank::ACE })
-		: card(card), visible(card)
 	{
+		suit = card.suit;
+		rank = card.rank;
 	}
-
-	Card card;		//the actual card stored
-	Card visible;	//card visible to the table
-};
-
-enum Players
-{
-	PURPLE_PLAYER,
-	RED_PLAYER,
-	GREEN_PLAYER,
-	BLUE_PLAYER
 };
 
 struct HandComponent
@@ -243,65 +233,45 @@ struct HandComponent
 
 			//creating cards to purple player
 			auto entity = registry.create();
-			registry.emplace<CardComponent>(entity);
+			registry.emplace<CardComponent>(entity, card);
 			registry.emplace<SpriteComponent>(entity, spriteSheet, sf::Vector2f{ x, y }, frame, 1.0f);
 			registry.emplace<HitBoxComponent>(entity, sf::FloatRect{ x, y, 64.0f, 96.0f });
-			registry.emplace<entt::tag<Players::PURPLE_PLAYER>>(entity);
 			registry.emplace<ButtonComponent>(entity, [this](entt::entity entity)
 			{
 				std::cout << ";)" << std::endl;
 				//remove(entity);
 			});
-			//mSlots[entity] = Slot{ card, entity };
 		}
 	}
 
 	void reveal()
 	{
-		/*
-		for (auto& [key, value] : mSlots)
-		{
-			auto& [card, entity] = value;
-			auto& sprite = registry.get<SpriteComponent>(entity);
+		//searching cards
+		auto view = registry.view<CardComponent, SpriteComponent>();
+
+		view.each([this](auto& card, auto& sprite) {
 			sprite.setFrame(mFrames[card.suit][card.rank]);
-		}
-		*/
+		});
 
 		visible = true;
 	}
 
 	void hide()
 	{
-		//searching cards for purple player
-		auto view = registry.view<
-			CardComponent, 
-			SpriteComponent, 
-			entt::tag<Players::PURPLE_PLAYER>>();
+		//searching cards
+		auto view = registry.view<CardComponent, SpriteComponent>();
 
-		view.each([](auto& card, auto& sprite) {
+		view.each([this](auto& card, auto& sprite) {
 			sprite.setFrame(mFrames[Suit::DIAMONDS][Rank::ACE]);
 		});
 
-		/*
-		for (auto& [key, value] : mSlots)
-		{
-			auto& [card, entity] = value;
-			auto& sprite = registry.get<SpriteComponent>(entity);
-			sprite.setFrame(mFrames[Suit::DIAMONDS][Rank::ACE]);
-		}
-
 		visible = false;
-		*/
 	}
 
 	void remove(entt::entity entity)
 	{
-		auto it = mSlots.find(entity);
-		if (it != mSlots.end())
-		{
-			registry.destroy(it->second.entity);
-			mSlots.erase(it);
-		}
+		registry.remove<SpriteComponent>(entity);
+		//registry.destroy(entity);
 	}
 
 	bool isHide()
@@ -309,10 +279,7 @@ struct HandComponent
 		return !visible;
 	}
 
-	//entt::group<CardComponent> mCards;
 	std::vector<std::vector<sf::IntRect>> mFrames;
-	std::unordered_map<entt::entity, Slot> mSlots;
-	entt::tag<Players::PURPLE_PLAYER> player;
 	bool visible;
 };
 
