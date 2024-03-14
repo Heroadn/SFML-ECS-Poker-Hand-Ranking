@@ -8,16 +8,18 @@ project (
     VERSION 0.0.0.0)
 
 #
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 #parkages
  find_package(SFML COMPONENTS system window graphics CONFIG REQUIRED)
 
+ find_package(EnTT CONFIG REQUIRED)
+
 # Adicione a origem ao executável deste projeto.
-add_executable (Cards "src/main.cpp" "src/Card.hpp" "src/Deck.hpp")
+add_executable (Cards "src/main.cpp" "src/Card.hpp" "src/Deck.hpp" "src/CardGame.hpp")
 
 target_link_libraries(Cards PRIVATE
-	sfml-system sfml-network sfml-graphics sfml-window
+	sfml-system sfml-network sfml-graphics sfml-window EnTT::EnTT
 )
 
 # Setting ASSETS_PATH

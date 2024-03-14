@@ -5,6 +5,9 @@
 #include <optional>
 #include <random>
 
+#ifndef DECK_H
+#define DECK_H
+
 class Deck
 {
 public:
@@ -38,6 +41,25 @@ public:
 		return card;
 	}
 
+	std::vector<Card> draw(int n)
+	{
+		std::vector<Card> cards;
+
+		if (empty())
+			return cards;
+
+		for (size_t i = 0; i < n; i++)
+		{
+			std::optional<Card> card = draw();
+			if (!card.has_value())
+				break;
+
+			cards.push_back(card.value());	
+		}
+
+		return cards;
+	}
+
 	bool empty()
 	{
 		return mCards.empty();
@@ -57,3 +79,5 @@ public:
 private:
 	std::vector<Card> mCards;
 };
+
+#endif // !DECK_H
