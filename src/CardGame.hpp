@@ -239,7 +239,7 @@ struct HandComponent
 			registry.emplace<ButtonComponent>(entity, [this](entt::entity entity)
 			{
 				std::cout << ";)" << std::endl;
-				//remove(entity);
+				remove(entity);
 			});
 		}
 	}
@@ -270,8 +270,8 @@ struct HandComponent
 
 	void remove(entt::entity entity)
 	{
-		registry.remove<SpriteComponent>(entity);
-		//registry.destroy(entity);
+		//registry.remove<SpriteComponent>(entity);
+		registry.destroy(entity);
 	}
 
 	bool isHide()
