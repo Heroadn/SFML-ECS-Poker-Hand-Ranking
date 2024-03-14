@@ -3,9 +3,9 @@
 #include <random>
 #include <unordered_map>
 #include <entt/entt.hpp>
+#include <functional>
 #include "Card.hpp"
 #include "Deck.hpp"
-#include <functional>
 
 #ifndef CARDGAME_H
 #define CARDGAME_H
@@ -13,13 +13,71 @@
 const int WIDTH = 640;
 const int HEIGHT = 480;
 
+const int M_WIDTH  = WIDTH / 2;
+const int M_HEIGHT = HEIGHT / 2;
+
 enum Direction { None, Up, Down, Left, Right };
 Direction direction;
-entt::entity player;
-std::vector<std::vector<sf::IntRect>> cardsFrames;
 
-//
+std::unordered_map<int, std::vector<sf::IntRect>> cardsFrames;
 entt::registry registry;
+
+class TextureManager
+{
+public:
+	std::shared_ptr<sf::Texture> loadTexture(std::string path, sf::Color background = sf::Color::Transparent)
+	{
+		//
+		sf::Image image;
+
+		//return cached texture
+		auto it = mTextures.find(path);
+		if (it != mTextures.end())
+		{
+			return it->second;
+		}
+
+		//load and cache texture
+		try
+		{
+			if (!image.loadFromFile(ASSETS_PATH + path))
+				throw std::runtime_error("Could not load image: " ASSETS_PATH + path);
+		}
+		catch (const std::exception& e) {
+			std::cerr << "Exception: " << e.what() << std::endl;
+			std::exit(1);
+		}
+
+		mTextures[path] = std::make_shared<sf::Texture>();
+		mTextures[path]->loadFromImage(image);
+		return mTextures[path];
+	}
+
+	sf::Image removeColor(sf::Image image, sf::Color color) {
+		auto [width, height] = image.getSize();
+
+		for (int y = 0; y < height; y++) {
+			//removing pixels
+			for (int x = 0; x < width; x++) {
+				int pr = image.getPixel(x, y).r == color.r;
+				int pg = image.getPixel(x, y).g == color.g;
+				int pb = image.getPixel(x, y).b == color.b;
+
+				if (pr && pg && pb) {
+					image.setPixel(x, y, sf::Color(0, 0, 0, 0));
+				}
+			}
+		}
+
+		return image;
+	}
+
+private:
+	std::unordered_map<std::string, std::shared_ptr<sf::Texture>> mTextures;
+};
+
+TextureManager manager;
+sf::Clock timeout;
 
 struct PlayerComponent { bool controllable = true; };
 
@@ -32,16 +90,35 @@ struct SpriteComponent : public sf::Sprite {
 		float speed = 1.0f
 	)
 	{
-		load(path);
+		setTexture(*manager.loadTexture(path));
 		setFrame(rect);
 		setScale(scale, scale);
 		setPosition(position);
 		mSpeed = speed;
+		spriteSheet = path;
+	}
+	
+	void load(std::string path, int width = 0, int heigth = 0)
+	{
+		try
+		{
+			if (!image.loadFromFile(ASSETS_PATH + path))
+				throw std::runtime_error("Could not load image: " ASSETS_PATH + path);
+		}
+		catch (const std::exception& e) {
+			std::cerr << "Exception: " << e.what() << std::endl;
+		}
+
+		texture.loadFromImage(image);
+		setTexture(texture);
 	}
 
-	sf::Image mImage;
-	sf::Texture mTexture;
+	//
+	sf::Texture texture;
+	sf::Image image;
+
 	sf::IntRect mFrame;
+	std::string spriteSheet;
 	float mSpeed;
 
 	void setFrame(int left, int top, int width, int height)
@@ -54,21 +131,6 @@ struct SpriteComponent : public sf::Sprite {
 	{
 		mFrame = mFrame;
 		setTextureRect(mFrame);
-	}
-
-	void load(std::string path, int width = 0, int heigth = 0, sf::Color color = sf::Color::Transparent)
-	{
-		try
-		{
-			if (!mImage.loadFromFile(ASSETS_PATH + path))
-				throw std::runtime_error("Could not load image: " ASSETS_PATH + path);
-		}
-		catch (const std::exception& e) {
-			std::cerr << "Exception: " << e.what() << std::endl;
-		}
-
-		mTexture.loadFromImage(mImage);
-		setTexture(mTexture);
 	}
 
 	void move(Direction direction, float dt)
@@ -204,6 +266,11 @@ struct CardComponent : Card
 		suit = card.suit;
 		rank = card.rank;
 	}
+
+	~CardComponent()
+	{
+		//std::cout << "DELETING CARD" << std::endl;
+	}
 };
 
 struct HandComponent
@@ -214,7 +281,7 @@ struct HandComponent
 		entt::entity entity = entt::null;
 	};
 
-	HandComponent(std::vector<Card> cards, std::vector<std::vector<sf::IntRect>>& frames)
+	HandComponent(std::vector<Card> cards, std::unordered_map<int, std::vector<sf::IntRect>>& frames)
 		:mFrames(frames), visible(false)
 	{
 		fill(cards);
@@ -223,13 +290,18 @@ struct HandComponent
 	void fill(std::vector<Card> cards)
 	{
 		auto offset = 0.0f;
-		std::string spriteSheet = "Cards_Pixel_Art/white_black.png";
+		std::string black = "Cards_Pixel_Art/white_black.png";
+		std::string red   = "Cards_Pixel_Art/white_red.png";
 
 		for (auto& card : cards)
 		{
-			auto& frame = mFrames[Suit::DIAMONDS][Rank::ACE];
-			auto x = 200.0f + (64.0f * (offset++));
-			auto y = 350.0f;
+			//auto& frame = mFrames[Suit::DIAMONDS][Rank::ACE];
+			auto& frame = mFrames[Suit::HEART][Rank::QUEEN];
+			auto x = (WIDTH / 4) + (64.0f * (offset++));
+			auto y = 370.0f;
+
+			auto& spriteSheet = (card.isRed())? red : black;
+			std::cout << card.toString() << std::endl;
 
 			//creating cards to purple player
 			auto entity = registry.create();
@@ -270,7 +342,6 @@ struct HandComponent
 
 	void remove(entt::entity entity)
 	{
-		//registry.remove<SpriteComponent>(entity);
 		registry.destroy(entity);
 	}
 
@@ -279,32 +350,24 @@ struct HandComponent
 		return !visible;
 	}
 
-	std::vector<std::vector<sf::IntRect>> mFrames;
+	std::unordered_map<int, std::vector<sf::IntRect>> mFrames;
 	bool visible;
 };
 
-//adicionar observer que ao entidade button ser clicada ele retorna a entidade clicada
-
-void populateCardFrames(std::vector<std::vector<sf::IntRect>>& cardsFrames)
+void populateCardFrames(std::unordered_map<int, std::vector<sf::IntRect>>& cardsFrames)
 {
+	//order of suits in spritesheet
+	std::vector<int> order = {Suit::CLUBS, Suit::HEART, Suit::SPADES, Suit::DIAMONDS};
+
 	for (auto suit = 0; suit < Suit::SUIT_NUM; suit++)
 	{
-		cardsFrames.emplace_back();
-		auto& frames = cardsFrames.back();
-
-		//
+		std::vector<sf::IntRect> frames;
 		for (auto rank = 0; rank < Rank::RANK_NUM; rank++)
 			frames.emplace_back(rank * 64, suit * 96, 64, 96);
+
+		cardsFrames[order[suit]] = frames;
 	}
-
 }
-
-/*
-[](entt::entity entity)
-	{
-		std::cout << ";)" << std::endl;
-	};
-*/
 
 class CardGame
 {
@@ -326,7 +389,7 @@ public:
 		Card card = deck.draw().value();
 		populateCardFrames(cardsFrames);
 		std::vector<Card> cards = deck.draw(5);
-
+		
 		//
 		std::unordered_map<std::string, AnimatorComponent::Animation> mAnimations;
 		mAnimations["moving"] = {
@@ -336,40 +399,33 @@ public:
 			sf::IntRect{ 34 * 2, 0, 34, 34 },
 			sf::IntRect{ 34 * 3, 0, 34, 34 }}, 0.1f) };
 
-		float middleWidth = WIDTH / 2;
-		float middleHeight = HEIGHT / 2;
-
+		/*
 		auto player = registry.create();
 		registry.emplace<SpriteComponent>(player, "bat.png", sf::Vector2f{ 10.0f, 10.0f }, sf::IntRect{ 34 * 0, 0, 34, 34 }, 2.0f, 300.0f);//171, 103, sf::Color{ 111, 109, 81 };
 		registry.emplace<AnimatorComponent>(player, mAnimations, "moving");
 		registry.emplace<PlayerComponent>(player);
-		registry.emplace<HandComponent>(player, cards, cardsFrames);
-		registry.emplace<HitBoxComponent>(player, sf::FloatRect{ 10.0f, 10.0f, 34, 34 });
-
-		auto buttonW = registry.create();
-		registry.emplace<SpriteComponent>(buttonW, "Gerald_Keys/Keys/W-Key.png", sf::Vector2f{ middleWidth, middleHeight - 30 }, sf::IntRect{ 0, 0, 32, 32 }, 2.0f);
-
-		auto buttonS = registry.create();
-		registry.emplace<SpriteComponent>(buttonS, "Gerald_Keys/Keys/S-Key.png", sf::Vector2f{ middleWidth, middleHeight + 64 - 30 }, sf::IntRect{ 0, 0, 32, 32 }, 2.0f);
-
-		auto buttonD = registry.create();
-		registry.emplace<SpriteComponent>(buttonD, "Gerald_Keys/Keys/D-Key.png", sf::Vector2f{ middleWidth + 64, middleHeight }, sf::IntRect{ 0, 0, 32, 32 }, 2.0f);
-
-		auto buttonA = registry.create();
-		registry.emplace<SpriteComponent>(buttonA, "Gerald_Keys/Keys/A-Key.png", sf::Vector2f{ middleWidth - 64, middleHeight }, sf::IntRect{ 0, 0, 32, 32 }, 2.0f, 2.0f);
+		registry.emplace<HitBoxComponent>(player, sf::FloatRect{ 10.0f, 10.0f, 34, 34 });*/
 
 		std::unordered_map<std::string, AnimatorComponent::Animation> cardAnimation;
 		cardAnimation["default"] = {
 			AnimatorComponent::Animation(cardsFrames[card.suit], 0.5f) };
 
+		SpriteComponent cardSprite("Cards_Pixel_Art/white_black.png", sf::Vector2f{ M_WIDTH, M_HEIGHT }, cardsFrames[card.suit][card.rank], 2.0f);
+		auto [x, y, width, height] = cardSprite.getGlobalBounds();
+		cardSprite.setPosition(M_WIDTH - (width / 2), M_HEIGHT - (height / 2));//
+
 		auto cardAnimating = registry.create();
-		registry.emplace<SpriteComponent>(cardAnimating, "Cards_Pixel_Art/white_black.png", sf::Vector2f{ 100, 100 }, cardsFrames[card.suit][card.rank], 2.0f);
+		registry.emplace<SpriteComponent>(cardAnimating, cardSprite);
 		registry.emplace<AnimatorComponent>(cardAnimating, cardAnimation, "default");
+
+		auto hand = registry.create();
+		registry.emplace<HandComponent>(hand, cards, cardsFrames);
 	}
 
 	void run()
 	{
 		init();
+
 		sf::Event event;
 		sf::Clock delta;
 		float dt = delta.restart().asSeconds();
@@ -389,9 +445,6 @@ public:
 
 	void update(float dt)
 	{
-		auto& sprite = registry.get<SpriteComponent>(player);
-		sprite.move(direction, dt);
-
 		auto animationsView = registry.view<AnimatorComponent, SpriteComponent>();
 		animationsView.each([&dt](auto& animator, auto& sprite) {
 			//updating animation
@@ -440,7 +493,8 @@ public:
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
 			direction = Direction::Down;
 
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter) 
+				&& timeout.getElapsedTime().asSeconds() > 1.0f) {
 			//
 			auto handView = registry.view<HandComponent>();
 			handView.each([](auto& hand)
@@ -450,6 +504,8 @@ public:
 					else
 						hand.hide();
 			});
+
+			timeout.restart();
 		}
 
 		auto handView = registry.view<HandComponent>();
