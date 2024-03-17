@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
  find_package(EnTT CONFIG REQUIRED)
 
 # Adicione a origem ao executável deste projeto.
-add_executable (Cards "src/main.cpp" "src/Card.hpp" "src/Deck.hpp" "src/CardGame.hpp")
+add_executable (Cards "src/main.cpp" "src/Card.hpp" "src/Deck.hpp" "src/Hand.hpp" "src/CardGame.hpp")
 
 target_link_libraries(Cards PRIVATE
 	sfml-system sfml-network sfml-graphics sfml-window EnTT::EnTT

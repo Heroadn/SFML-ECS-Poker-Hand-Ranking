@@ -6,6 +6,7 @@
 #include <functional>
 #include "Card.hpp"
 #include "Deck.hpp"
+#include "Hand.hpp"
 
 #ifndef CARDGAME_H
 #define CARDGAME_H
@@ -78,8 +79,35 @@ private:
 
 TextureManager manager;
 sf::Clock timeout;
+Deck deck;
 
 struct PlayerComponent { bool controllable = true; };
+
+struct TextComponent
+{
+	TextComponent(std::string str, sf::Font& font, sf::Color color, sf::Vector2f position, int size)
+		: mFont(font)
+	{
+		mText.setFont(mFont);
+		mText.setString(str);
+		mText.setCharacterSize(size);
+		mText.setFillColor(color);
+		mText.setPosition(position);
+	}
+
+	sf::FloatRect localBounds()
+	{
+		return mText.getGlobalBounds();
+	}
+
+	void draw(sf::RenderWindow& window)
+	{
+		window.draw(mText);
+	}
+
+	sf::Text mText;
+	sf::Font mFont;
+};
 
 struct SpriteComponent : public sf::Sprite {
 	SpriteComponent(
@@ -120,6 +148,11 @@ struct SpriteComponent : public sf::Sprite {
 	sf::IntRect mFrame;
 	std::string spriteSheet;
 	float mSpeed;
+
+	sf::FloatRect localBounds()
+	{
+		return getGlobalBounds();
+	}
 
 	void setFrame(int left, int top, int width, int height)
 	{
@@ -247,16 +280,27 @@ struct ButtonComponent
 {
 	ButtonComponent(
 		std::function<void(entt::entity entity)> onAction)
-		: onAction(onAction)
+		: mOnAction(onAction)
 	{
 	}
 
 	ButtonComponent()
-		: onAction([](entt::entity entity) {})
+		: mOnAction([](entt::entity entity) {})
 	{
 	}
 
-	std::function<void(entt::entity entity)> onAction;
+	void onAction(entt::entity entity)
+	{
+		if (clock.getElapsedTime().asSeconds() > cooldown)
+		{
+			mOnAction(entity);
+			clock.restart();
+		}
+	}
+
+	std::function<void(entt::entity entity)> mOnAction;
+	sf::Clock clock;
+	float cooldown = 0.2f;
 };
 
 struct CardComponent : Card
@@ -290,29 +334,36 @@ struct HandComponent
 	void fill(std::vector<Card> cards)
 	{
 		auto offset = 0.0f;
-		std::string black = "Cards_Pixel_Art/white_black.png";
-		std::string red   = "Cards_Pixel_Art/white_red.png";
 
+		//avaliable positions to place cards
 		for (auto& card : cards)
 		{
-			//auto& frame = mFrames[Suit::DIAMONDS][Rank::ACE];
-			auto& frame = mFrames[Suit::HEART][Rank::QUEEN];
 			auto x = (WIDTH / 4) + (64.0f * (offset++));
 			auto y = 370.0f;
+			mPositions.push_back({x, y});
+			mAvaliable.push_back({ x, y });
+		}
 
-			auto& spriteSheet = (card.isRed())? red : black;
-			std::cout << card.toString() << std::endl;
+		//adding cards
+		for (auto& card : cards)
+			addCard(card);
 
-			//creating cards to purple player
-			auto entity = registry.create();
-			registry.emplace<CardComponent>(entity, card);
-			registry.emplace<SpriteComponent>(entity, spriteSheet, sf::Vector2f{ x, y }, frame, 1.0f);
-			registry.emplace<HitBoxComponent>(entity, sf::FloatRect{ x, y, 64.0f, 96.0f });
-			registry.emplace<ButtonComponent>(entity, [this](entt::entity entity)
-			{
-				std::cout << ";)" << std::endl;
-				remove(entity);
-			});
+		visible = true;
+	}
+
+	void refresh(std::vector<Card> cards)
+	{
+		auto view = registry.view<CardComponent, SpriteComponent>();
+
+		//removing cards
+		view.each([this](auto entity, auto& card, auto& sprite) {
+			remove(entity);
+		});
+
+		//adding cards
+		for (Card card : cards)
+		{
+			addCard(card);
 		}
 	}
 
@@ -340,9 +391,60 @@ struct HandComponent
 		visible = false;
 	}
 
+	void addCard(Card card)
+	{
+		if (isFull() || isEmpty())
+			return;
+
+		std::string black = "Cards_Pixel_Art/white_black.png";
+		std::string red   = "Cards_Pixel_Art/white_red.png";
+
+		//auto& frame = mFrames[Suit::HEART][Rank::QUEEN];
+		auto& frame = mFrames[card.suit][card.rank];
+		auto [x, y] = mAvaliable.back();
+		mAvaliable.pop_back();
+
+		auto& spriteSheet = (card.isRed()) ? red : black;
+		//std::cout << card.toString() << std::endl;
+
+		//creating cards to purple player
+		auto entity = registry.create();
+		registry.emplace<CardComponent>(entity, card);
+		registry.emplace<SpriteComponent>(entity, spriteSheet, sf::Vector2f{ x, y }, frame, 1.0f);
+		registry.emplace<HitBoxComponent>(entity, sf::FloatRect{ x, y, 64.0f, 96.0f });
+		registry.emplace<ButtonComponent>(entity, [this](entt::entity entity)
+		{
+			remove(entity);
+		});
+
+		n++;
+	}
+
 	void remove(entt::entity entity)
 	{
+		auto& sprite = registry.get<SpriteComponent>(entity);
+		mAvaliable.push_back(sprite.getPosition());
 		registry.destroy(entity);
+		n--;
+	}
+
+	const std::string& rank()
+	{
+		auto view = registry.view<CardComponent>();
+		std::vector<Card> cards;
+
+		//verify if theres 5 cards
+		view.each([this, &cards](auto& card) {
+			cards.push_back(card);
+		});
+
+		if (cards.size() < 5)
+			return "";
+
+		auto result = Ranking::ranking(cards);
+		rankStr = Ranking::toString(result);
+		Ranking::print(cards);
+		return rankStr;
 	}
 
 	bool isHide()
@@ -350,8 +452,24 @@ struct HandComponent
 		return !visible;
 	}
 
+	bool isFull()
+	{
+		return mAvaliable.size() > 5;
+	}
+
+	bool isEmpty()
+	{
+		return mAvaliable.empty();
+	}
+
 	std::unordered_map<int, std::vector<sf::IntRect>> mFrames;
+	std::vector<sf::Vector2f> mPositions;
+	std::vector<sf::Vector2f> mAvaliable;
+
 	bool visible;
+	int max = 5;
+	int n = 0;
+	std::string rankStr = "";
 };
 
 void populateCardFrames(std::unordered_map<int, std::vector<sf::IntRect>>& cardsFrames)
@@ -384,7 +502,6 @@ public:
 
 	void init()
 	{
-		Deck deck;
 		deck.shuffle();
 		Card card = deck.draw().value();
 		populateCardFrames(cardsFrames);
@@ -392,34 +509,122 @@ public:
 		
 		//
 		std::unordered_map<std::string, AnimatorComponent::Animation> mAnimations;
-		mAnimations["moving"] = {
-			AnimatorComponent::Animation({
-			sf::IntRect{ 34 * 0, 0, 34, 34 },
-			sf::IntRect{ 34 * 1, 0, 34, 34 },
-			sf::IntRect{ 34 * 2, 0, 34, 34 },
-			sf::IntRect{ 34 * 3, 0, 34, 34 }}, 0.1f) };
-
-		/*
-		auto player = registry.create();
-		registry.emplace<SpriteComponent>(player, "bat.png", sf::Vector2f{ 10.0f, 10.0f }, sf::IntRect{ 34 * 0, 0, 34, 34 }, 2.0f, 300.0f);//171, 103, sf::Color{ 111, 109, 81 };
-		registry.emplace<AnimatorComponent>(player, mAnimations, "moving");
-		registry.emplace<PlayerComponent>(player);
-		registry.emplace<HitBoxComponent>(player, sf::FloatRect{ 10.0f, 10.0f, 34, 34 });*/
+		mAnimations["moving"] = { AnimatorComponent::Animation({
+			{ 34 * 0, 0, 34, 34 },
+			{ 34 * 1, 0, 34, 34 },
+			{ 34 * 2, 0, 34, 34 },
+			{ 34 * 3, 0, 34, 34 }}, 0.1f) };
 
 		std::unordered_map<std::string, AnimatorComponent::Animation> cardAnimation;
-		cardAnimation["default"] = {
-			AnimatorComponent::Animation(cardsFrames[card.suit], 0.5f) };
+		cardAnimation["default"] = { AnimatorComponent::Animation(cardsFrames[card.suit], 0.5f) };
 
+		//
 		SpriteComponent cardSprite("Cards_Pixel_Art/white_black.png", sf::Vector2f{ M_WIDTH, M_HEIGHT }, cardsFrames[card.suit][card.rank], 2.0f);
 		auto [x, y, width, height] = cardSprite.getGlobalBounds();
-		cardSprite.setPosition(M_WIDTH - (width / 2), M_HEIGHT - (height / 2));//
+		cardSprite.setPosition(M_WIDTH - (width / 2), M_HEIGHT - (height / 2));
 
 		auto cardAnimating = registry.create();
 		registry.emplace<SpriteComponent>(cardAnimating, cardSprite);
 		registry.emplace<AnimatorComponent>(cardAnimating, cardAnimation, "default");
 
+		//
 		auto hand = registry.create();
 		registry.emplace<HandComponent>(hand, cards, cardsFrames);
+
+
+		//std::string& str, sf::Font font, sf::Color color, int size
+		sf::Font font;
+		if (!font.loadFromFile(ASSETS_PATH"NotJamFontPack/Not Jam Laika 11/Not Jam Laika 11.ttf"))
+			std::cout << "ERROR WHILE LOADING FONT" << std::endl;
+
+		//JOKER_VERMELHO
+		registry.emplace<TextComponent>(
+			registry.create(), "MONEY", font, sf::Color::Black, sf::Vector2f{10, 0}, 40);
+
+		registry.emplace<TextComponent>(
+			registry.create(), "$1234", font, sf::Color::Red, sf::Vector2f{10, 40},  20);
+
+		//
+		auto eye = registry.create();
+		auto& eyeSprite = registry.emplace<SpriteComponent>(eye, "Pixel Icons/1bit 16px icons part-2 outlines.png", sf::Vector2f{ 480, 375 }, sf::IntRect{81, 80, 16, 16}, 2.0f);
+		registry.emplace<HitBoxComponent>(eye, eyeSprite.localBounds());
+		registry.emplace<ButtonComponent>(eye, [this](entt::entity entity)
+		{
+			auto handView = registry.view<HandComponent>();
+			auto& sprite = registry.get<SpriteComponent>(entity);
+
+			handView.each([&sprite](auto& hand)
+				{
+					if (hand.isHide())
+					{
+						hand.reveal();
+						sprite.setFrame(sf::IntRect{ 81, 80, 16, 16 });
+					}
+					else
+					{
+						hand.hide();
+						sprite.setFrame(sf::IntRect{ 104, 80, 16, 16 });
+					}
+				});
+		});
+
+		auto eye1 = registry.create();
+		auto& eyeSprite1 = registry.emplace<SpriteComponent>(eye1, "Pixel Icons/1bit 16px icons part-2 outlines.png", sf::Vector2f{ 480, 375 + 32 }, sf::IntRect{ 320, 128, 16, 16 }, 2.0f);
+		registry.emplace<HitBoxComponent>(eye1, eyeSprite1.localBounds());
+		registry.emplace<ButtonComponent>(eye1, [this](entt::entity entity)
+		{
+			auto handView = registry.view<HandComponent>();
+			handView.each([this](auto& hand)
+			{
+				std::vector<Card> cards = deck.draw(5);
+				hand.refresh(cards);
+			});
+		});
+
+		//
+		auto offsetX = 0.0f;
+		auto offsetY = 205.0f;
+
+		auto ranking = registry.create();
+		auto& textRanking = registry.emplace<TextComponent>(ranking, "[RANKING]", font, sf::Color::Black, sf::Vector2f{ 10 + offsetX, 170 + offsetY }, 20);
+		registry.emplace<HitBoxComponent>(ranking, textRanking.localBounds());
+		registry.emplace<ButtonComponent>(ranking, [this](entt::entity entity)
+			{
+				std::cout << "RANKING CARD" << std::endl;
+				auto handView = registry.view<HandComponent>();
+				handView.each([this](auto& hand)
+				{
+						hand.rank();
+				});
+			});
+
+		//make a ballon with text
+		//I have tasted the grape juice
+		//and it's opened up my eyes ;)
+		auto call = registry.create();
+		auto& textAdd = registry.emplace<TextComponent>(call, "[CALL]", font, sf::Color{100,100,100}, sf::Vector2f{ 10 + offsetX, 200 + offsetY }, 20);
+		registry.emplace<HitBoxComponent>(call, textAdd.localBounds());
+		registry.emplace<ButtonComponent>(call, [this](entt::entity entity)
+		{
+			std::cout << "CALL CARD" << std::endl;
+		});
+
+		//
+		auto draw = registry.create();
+		auto& textDraw = registry.emplace<TextComponent>(draw, "[DRAW]", font, sf::Color::Black, sf::Vector2f{ 10 + offsetX, 230 + offsetY }, 20);
+		registry.emplace<HitBoxComponent>(draw, textDraw.localBounds());
+		registry.emplace<ButtonComponent>(draw, [this](entt::entity entity)
+		{
+			auto handView = registry.view<HandComponent>();
+			handView.each([this](auto& hand)
+			{
+				std::optional<Card> card = deck.draw();
+
+				if (card.has_value())
+					hand.addCard(card.value());
+			});
+			std::cout << "DRAW CARD" << std::endl;
+		});
 	}
 
 	void run()
@@ -454,13 +659,13 @@ public:
 
 		auto buttonView = registry.view<HitBoxComponent, ButtonComponent>();
 		buttonView.each([&dt, this](const auto entity, auto& hitbox, auto& button) {
+
 			sf::Vector2f position = window.mapPixelToCoords(sf::Mouse::getPosition(window));
 			auto result = hitbox.getHitbox().contains(position);
 
 			if (result && sf::Mouse::isButtonPressed(sf::Mouse::Left))
-			{
 				button.onAction(entity);
-			}
+
 		});
 	}
 
@@ -492,60 +697,18 @@ public:
 
 		if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
 			direction = Direction::Down;
-
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter) 
-				&& timeout.getElapsedTime().asSeconds() > 1.0f) {
-			//
-			auto handView = registry.view<HandComponent>();
-			handView.each([](auto& hand)
-			{
-					if (hand.isHide())
-						hand.reveal();
-					else
-						hand.hide();
-			});
-
-			timeout.restart();
-		}
-
-		auto handView = registry.view<HandComponent>();
-		/*
-		handView.each([&selectedCard](auto& hand)
-		{
-			sf::Vector2f position = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-
-			for (auto& [key, {entity, card}] : hand.mCards)
-			{
-				auto& sprite = registry.get<SpriteComponent>(entity);
-				auto result = sprite.getHitbox().contains(position);
-
-				if (result && sf::Mouse::isButtonPressed(sf::Mouse::Left))
-					selectedCard = key;
-			}
-		});
-
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::BackSpace)) {
-
-			//
-			auto handView = registry.view<HandComponent>();
-			handView.each([&selectedCard](auto& hand)
-			{
-				//trocar para queue ou stack de cartas a serem removidas
-				//assim trocando select card por uma estrutura que enquanto
-				//nao vazia apenas remova
-				if (selectedCard != -1)
-					hand.remove(selectedCard);
-
-				selectedCard = -1;
-			});
-		}*/
 	}
 
 	void render()
 	{
-		auto view = registry.view<SpriteComponent>();
-		view.each([this](auto& sprite) {
+		auto viewSprite = registry.view<SpriteComponent>();
+		viewSprite.each([this](auto& sprite) {
 			window.draw(sprite);
+		});
+
+		auto viewText = registry.view<TextComponent>();
+		viewText.each([this](auto& text) {
+			text.draw(window);
 		});
 	}
 private:

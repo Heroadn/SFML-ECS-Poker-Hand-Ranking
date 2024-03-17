@@ -9,11 +9,134 @@
 #include "Card.hpp"
 #include "Deck.hpp"
 #include "CardGame.hpp"
+#include "Hand.hpp"
 
 int main(int argc, char** argv) {
 
     CardGame game;
     game.run();
+
+    /*
+    std::vector<Card> straight = {
+        {Suit::HEART, Rank::TEN}, 
+        {Suit::CLUBS, Rank::NINE}, 
+        {Suit::DIAMONDS, Rank::EIGHT}, 
+        {Suit::SPADES, Rank::SEVEN}, 
+        {Suit::HEART, Rank::SIX}
+    };
+
+    std::vector<Card> straightFlush = {
+        {Suit::HEART, Rank::TEN},
+        {Suit::HEART, Rank::NINE},
+        {Suit::HEART, Rank::EIGHT},
+        {Suit::HEART, Rank::SEVEN},
+        {Suit::HEART, Rank::SIX}
+    };
+
+    std::vector<Card> fourOfAKind = {
+        {Suit::HEART, Rank::QUEEN},
+        {Suit::SPADES, Rank::QUEEN},
+        {Suit::DIAMONDS, Rank::QUEEN},
+        {Suit::CLUBS, Rank::QUEEN},
+        {Suit::DIAMONDS, Rank::QUEEN}
+    };
+
+    std::vector<Card> threeOfAKind = {
+        {Suit::HEART, Rank::QUEEN},
+        {Suit::SPADES, Rank::QUEEN},
+        {Suit::DIAMONDS, Rank::QUEEN},
+        {Suit::CLUBS, Rank::SEVEN},
+        {Suit::SPADES, Rank::SIX}
+    };
+
+    std::vector<Card> fullHouse = {
+       {Suit::HEART, Rank::ACE},
+       {Suit::CLUBS, Rank::ACE},
+       {Suit::DIAMONDS, Rank::ACE},
+       {Suit::SPADES, Rank::KING},
+       {Suit::HEART, Rank::KING}
+    };
+
+    std::vector<Card> flush = {
+       {Suit::CLUBS, Rank::KING},
+       {Suit::CLUBS, Rank::TEN},
+       {Suit::CLUBS, Rank::EIGHT},
+       {Suit::CLUBS, Rank::SEVEN},
+       {Suit::CLUBS, Rank::FIVE}
+    };
+
+    std::vector<Card> royalFlush = {
+       {Suit::HEART, Rank::ACE},
+       {Suit::HEART, Rank::KING},
+       {Suit::HEART, Rank::QUEEN},
+       {Suit::HEART, Rank::JACK},
+       {Suit::HEART, Rank::TEN}
+    };
+
+    std::vector<Card> onePair = {
+       {Suit::SPADES, Rank::QUEEN},
+       {Suit::HEART, Rank::QUEEN},
+       {Suit::HEART, Rank::SIX},
+       {Suit::CLUBS, Rank::NINE},
+       {Suit::DIAMONDS, Rank::TWO}
+    };
+
+    std::vector<Card> twoPair = {
+       {Suit::HEART, Rank::JACK},
+       {Suit::CLUBS, Rank::JACK},
+       {Suit::DIAMONDS, Rank::NINE},
+       {Suit::CLUBS, Rank::NINE},
+       {Suit::DIAMONDS, Rank::TWO}
+    };
+
+    std::vector<Card> test1 = {
+       {Suit::SPADES, Rank::ACE},
+       {Suit::SPADES, Rank::KING},
+       {Suit::SPADES, Rank::QUEEN},
+       {Suit::SPADES, Rank::JACK},
+       {Suit::SPADES, Rank::TEN}
+    };
+
+    std::vector<Card> test2 = {
+      {Suit::HEART, Rank::KING},
+      {Suit::CLUBS, Rank::KING},
+      {Suit::DIAMONDS, Rank::KING},
+      {Suit::CLUBS, Rank::SEVEN},
+      {Suit::SPADES, Rank::NINE}
+    };
+
+    //STRAIGHT, STRAIGHT FLUSH, FOUR OF A KIND, THREE OF A KIND
+    //FULL HOUSE, FLUSH, ROYAL FLUSH, ONE PAIR, TWO PAIR
+
+    // Imprime o ranking do Straight Flush
+    Ranking::print(straightFlush);
+
+    // Imprime o ranking do Four of a Kind
+    Ranking::print(fourOfAKind);
+
+    // Imprime o ranking do Full House
+    Ranking::print(fullHouse);
+
+    // Imprime o ranking do Flush
+    Ranking::print(flush);
+
+    // Imprime o ranking do Straight
+    Ranking::print(straight);
+
+    // Imprime o ranking do Three of a Kind
+    Ranking::print(threeOfAKind);
+
+    // Imprime o ranking do Two Pair
+    Ranking::print(twoPair);
+
+    // Imprime o ranking do One Pair
+    Ranking::print(onePair);
+
+    // Test 1
+    Ranking::print(test1);
+
+    // Test 2
+    Ranking::print(test2);*/
 }
 
 sf::Image removeColor(sf::Image mImage,int width, int height, int r, int g, int b) {

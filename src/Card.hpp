@@ -122,6 +122,11 @@ struct Card
             break;
         }
     }
+
+    bool compare(const Card& a, const Card& b)
+    {
+        return ((int)a.rank < (int)b.rank);
+    }
 };
 
 #endif // !CARD_H

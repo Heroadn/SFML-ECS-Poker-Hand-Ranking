@@ -1,4 +1,4 @@
-#include "Card.hpp"
+﻿#include "Card.hpp"
 #include <vector>
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
@@ -76,6 +76,7 @@ public:
 	{
 		mCards.push_back(card);
 	}
+
 private:
 	std::vector<Card> mCards;
 };
