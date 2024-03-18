@@ -80,6 +80,7 @@ private:
 TextureManager manager;
 sf::Clock timeout;
 Deck deck;
+Deck select;
 
 struct PlayerComponent { bool controllable = true; };
 
@@ -338,6 +339,7 @@ struct HandComponent
 		//avaliable positions to place cards
 		for (auto& card : cards)
 		{
+			//auto x = (WIDTH / 4) + (64.0f * (offset++)) - (offset * 15.0f);
 			auto x = (WIDTH / 4) + (64.0f * (offset++));
 			auto y = 370.0f;
 			mPositions.push_back({x, y});
@@ -503,34 +505,11 @@ public:
 	void init()
 	{
 		deck.shuffle();
-		Card card = deck.draw().value();
 		populateCardFrames(cardsFrames);
-		std::vector<Card> cards = deck.draw(5);
-		
-		//
-		std::unordered_map<std::string, AnimatorComponent::Animation> mAnimations;
-		mAnimations["moving"] = { AnimatorComponent::Animation({
-			{ 34 * 0, 0, 34, 34 },
-			{ 34 * 1, 0, 34, 34 },
-			{ 34 * 2, 0, 34, 34 },
-			{ 34 * 3, 0, 34, 34 }}, 0.1f) };
-
-		std::unordered_map<std::string, AnimatorComponent::Animation> cardAnimation;
-		cardAnimation["default"] = { AnimatorComponent::Animation(cardsFrames[card.suit], 0.5f) };
-
-		//
-		SpriteComponent cardSprite("Cards_Pixel_Art/white_black.png", sf::Vector2f{ M_WIDTH, M_HEIGHT }, cardsFrames[card.suit][card.rank], 2.0f);
-		auto [x, y, width, height] = cardSprite.getGlobalBounds();
-		cardSprite.setPosition(M_WIDTH - (width / 2), M_HEIGHT - (height / 2));
-
-		auto cardAnimating = registry.create();
-		registry.emplace<SpriteComponent>(cardAnimating, cardSprite);
-		registry.emplace<AnimatorComponent>(cardAnimating, cardAnimation, "default");
 
 		//
 		auto hand = registry.create();
-		registry.emplace<HandComponent>(hand, cards, cardsFrames);
-
+		registry.emplace<HandComponent>(hand, deck.draw(5), cardsFrames);
 
 		//std::string& str, sf::Font font, sf::Color color, int size
 		sf::Font font;
@@ -539,14 +518,11 @@ public:
 
 		//JOKER_VERMELHO
 		registry.emplace<TextComponent>(
-			registry.create(), "MONEY", font, sf::Color::Black, sf::Vector2f{10, 0}, 40);
-
-		registry.emplace<TextComponent>(
-			registry.create(), "$1234", font, sf::Color::Red, sf::Vector2f{10, 40},  20);
+			registry.create(), "SELECT YOUR HAND", font, sf::Color::Red, sf::Vector2f{ 10, 8 }, 30);
 
 		//
 		auto eye = registry.create();
-		auto& eyeSprite = registry.emplace<SpriteComponent>(eye, "Pixel Icons/1bit 16px icons part-2 outlines.png", sf::Vector2f{ 480, 375 }, sf::IntRect{81, 80, 16, 16}, 2.0f);
+		auto& eyeSprite = registry.emplace<SpriteComponent>(eye, "Pixel Icons/1bit 16px icons part-2 outlines.png", sf::Vector2f{ 490, 375 }, sf::IntRect{81, 80, 16, 16}, 2.5f);
 		registry.emplace<HitBoxComponent>(eye, eyeSprite.localBounds());
 		registry.emplace<ButtonComponent>(eye, [this](entt::entity entity)
 		{
@@ -569,7 +545,7 @@ public:
 		});
 
 		auto eye1 = registry.create();
-		auto& eyeSprite1 = registry.emplace<SpriteComponent>(eye1, "Pixel Icons/1bit 16px icons part-2 outlines.png", sf::Vector2f{ 480, 375 + 32 }, sf::IntRect{ 320, 128, 16, 16 }, 2.0f);
+		auto& eyeSprite1 = registry.emplace<SpriteComponent>(eye1, "Pixel Icons/1bit 16px icons part-2 outlines.png", sf::Vector2f{ 490, 375 + 51 }, sf::IntRect{ 320, 128, 16, 16 }, 2.5f);
 		registry.emplace<HitBoxComponent>(eye1, eyeSprite1.localBounds());
 		registry.emplace<ButtonComponent>(eye1, [this](entt::entity entity)
 		{
@@ -598,15 +574,20 @@ public:
 				});
 			});
 
+		//add face that changes emotion based in hand ranking
+		//auto face = registry.create();
+		//registry.emplace<SpriteComponent>(face, "Cute faces.png", sf::Vector2f{ 100, 200 }, sf::IntRect{ 34, 407, 341, 334 }, 0.2f);
+
 		//make a ballon with text
 		//I have tasted the grape juice
 		//and it's opened up my eyes ;)
+		//reference to an infected mushroom song
 		auto call = registry.create();
-		auto& textAdd = registry.emplace<TextComponent>(call, "[CALL]", font, sf::Color{100,100,100}, sf::Vector2f{ 10 + offsetX, 200 + offsetY }, 20);
+		auto& textAdd = registry.emplace<TextComponent>(call, "[DECK]", font, sf::Color::Black, sf::Vector2f{ 10 + offsetX, 200 + offsetY }, 20);
 		registry.emplace<HitBoxComponent>(call, textAdd.localBounds());
 		registry.emplace<ButtonComponent>(call, [this](entt::entity entity)
 		{
-			std::cout << "CALL CARD" << std::endl;
+			std::cout << "DECK CARD" << std::endl;
 		});
 
 		//
@@ -625,6 +606,37 @@ public:
 			});
 			std::cout << "DRAW CARD" << std::endl;
 		});
+
+		//make a deck component
+		auto [xCard, yCard] = sf::Vector2f{ 0,0};
+		auto max = 13;
+		auto cardOffsetX = 8.0f;
+		size_t i = 0;
+
+		std::string black = "Cards_Pixel_Art/white_black.png";
+		std::string red = "Cards_Pixel_Art/white_red.png";
+		
+		for (auto card : select)
+		{
+			xCard = (40.0f * (i % max)) + cardOffsetX;
+			yCard += (i % max == 0) ? 58 : 0;
+			i++;
+
+			auto& spriteSheet = (card.isRed()) ? red : black;
+			auto cardSelect = registry.create();
+			auto& cardSelectSprite = registry.emplace<SpriteComponent>(cardSelect, spriteSheet, sf::Vector2f{ xCard, yCard }, cardsFrames[card.suit][card.rank], 0.6f);
+			registry.emplace<HitBoxComponent>(cardSelect, cardSelectSprite.localBounds());
+			registry.emplace<ButtonComponent>(cardSelect, [this, card](entt::entity entity)
+			{
+				auto handView = registry.view<HandComponent>();
+				handView.each([&, card](auto& hand)
+				{
+						hand.addCard(card);
+				});
+				
+			});
+		}
+		
 	}
 
 	void run()

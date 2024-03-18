@@ -77,6 +77,10 @@ public:
 		mCards.push_back(card);
 	}
 
+	inline std::vector<Card>::iterator begin() noexcept { return mCards.begin(); }
+	inline std::vector<Card>::const_iterator cbegin() const noexcept { return mCards.cbegin(); }
+	inline std::vector<Card>::iterator end() noexcept { return mCards.end(); }
+	inline std::vector<Card>::const_iterator cend() const noexcept { return mCards.cend(); }
 private:
 	std::vector<Card> mCards;
 };
