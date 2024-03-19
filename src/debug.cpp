@@ -157,6 +157,41 @@ sf::Image removeColor(sf::Image mImage, int width, int height, int r, int g, int
 }
 
 /*
+//
+auto offsetX = 0.0f;
+auto offsetY = 205.0f;
+
+auto ranking = registry.create();
+auto& textRanking = registry.emplace<TextComponent>(ranking, "[RANKING]", font, sf::Color::Black, sf::Vector2f{ 10 + offsetX, 170 + offsetY }, 20);
+registry.emplace<HitBoxComponent>(ranking, textRanking.localBounds());
+registry.emplace<ButtonComponent>(ranking, [this, &rankText](entt::entity entity)
+    {
+        std::cout << "RANKING CARD" << std::endl;
+        auto handView = registry.view<HandComponent>();
+        handView.each([this, &rankText](auto& hand)
+        {
+                rankText.setText(hand.rank());
+        });
+    });
+
+//
+auto draw = registry.create();
+auto& textDraw = registry.emplace<TextComponent>(draw, "[DRAW]", font, sf::Color::Black, sf::Vector2f{ 10 + offsetX, 200 + offsetY }, 20);
+registry.emplace<HitBoxComponent>(draw, textDraw.localBounds());
+registry.emplace<ButtonComponent>(draw, [this](entt::entity entity)
+{
+    auto handView = registry.view<HandComponent>();
+    handView.each([this](auto& hand)
+    {
+        std::optional<Card> card = deck.draw();
+
+        if (card.has_value())
+            hand.addCard(card.value());
+    });
+    std::cout << "DRAW CARD" << std::endl;
+});*/
+
+/*
     // If true, you will continue to receive keyboard events when a key is held down
     // If false, it will only fire one event per press until released
     window.setKeyRepeatEnabled(false);

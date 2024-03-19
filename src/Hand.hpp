@@ -22,7 +22,8 @@ namespace Ranking
 		ROYAL_FLUSH,
 		ONE_PAIR,
 		TWO_PAIR,
-		HIGHEST
+		HIGHEST,
+		NOT_ENOUGH_CARDS
 	};
 
 
@@ -48,6 +49,8 @@ namespace Ranking
 			return "Two Pair";
 		case Hand::HIGHEST:
 			return "Highest";
+		case Hand::NOT_ENOUGH_CARDS:
+			return "Not enough cards";
 		default:
 			return "Unknown Hand";
 		}
@@ -204,6 +207,9 @@ namespace Ranking
 	Hand ranking(std::vector<Card> cards)
 	{
 		Hand result = Hand::HIGHEST;
+
+		if (cards.size() < 5)
+			return Hand::NOT_ENOUGH_CARDS;
 		
 		if (Ranking::isRoyalFlush(cards))
 		{
